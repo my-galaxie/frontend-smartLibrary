@@ -78,6 +78,13 @@ class APIClient {
         return this.request('/auth/logout', { method: 'POST' })
     }
 
+    async verifyOtp(email: string, otp: string, type: string = "signup") {
+        return this.request('/auth/verify', {
+            method: 'POST',
+            body: JSON.stringify({ email, otp, type })
+        })
+    }
+
     // Student endpoints
     async getStudentDashboard() {
         return this.request('/api/student/dashboard')
