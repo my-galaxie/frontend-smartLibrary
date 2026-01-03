@@ -1,6 +1,6 @@
 // Hardcoded to force AWS backend usage during debug
-// const API_URL = 'https://qljzkg1uzd.execute-api.ap-south-1.amazonaws.com'
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_URL = 'https://qljzkg1uzd.execute-api.ap-south-1.amazonaws.com'
+// const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 // Get token from localStorage
 const getToken = (): string | null => {
@@ -125,6 +125,13 @@ class APIClient {
 
     async getProfileRequest() {
         return this.request('/api/student/profile/request')
+    }
+
+    async updateProfile(data: { name?: string; student_id?: string }) {
+        return this.request('/api/student/profile', {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        })
     }
 
     // Books endpoints
