@@ -86,6 +86,13 @@ export default function InventoryPage() {
     }
   }
 
+  const [searchQuery, setSearchQuery] = useState("")
+
+  const filteredBooks = books.filter(book =>
+    book.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    book.author.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
   return (
     <div className="min-h-screen flex flex-col">
       <AdminNav />
@@ -195,55 +202,70 @@ export default function InventoryPage() {
             <CardHeader>
               <CardTitle>Book Collection</CardTitle>
               <CardDescription>All books in the library system</CardDescription>
+              <div className="mt-4">
+                <Input
+                  placeholder="Search by title or author..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="max-w-sm"
+                />
+              </div>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Author</TableHead>
-                    <TableHead>Total Copies</TableHead>
-                    <TableHead>Available</TableHead>
-                    <TableHead>Borrowed</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {books.length > 0 ? (
-                    books.map((book) => (
-                      <TableRow key={book.id}>
-                        <TableCell className="font-medium">{book.title}</TableCell>
-                        <TableCell>{book.author}</TableCell>
-                        <TableCell>{book.total}</TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={book.available > 0 ? "secondary" : "destructive"}
-                            className={book.available > 0 ? "bg-primary/10 text-primary" : ""}
-                          >
-                            {book.available}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{book.borrowed}</TableCell>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteBook(book.id)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
+              {loading ? (
+                <div className="flex justify-center items-center py-8">
+                  <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+                  <span className="ml-2 text-muted-foreground">Loading inventory...</span>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Title</TableHead>
+                      <TableHead>Author</TableHead>
+                      <TableHead>Total Copies</TableHead>
+                      <TableHead>Available</TableHead>
+                      <TableHead>Borrowed</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredBooks.length > 0 ? (
+                      filteredBooks.map((book) => (
+                        <TableRow key={book.id}>
+                          <TableCell className="font-medium">{book.title}</TableCell>
+                          <TableCell>{book.author}</TableCell>
+                          <TableCell>{book.total}</TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={book.available > 0 ? "secondary" : "destructive"}
+                              className={book.available > 0 ? "bg-primary/10 text-primary" : ""}
+                            >
+                              {book.available}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{book.borrowed}</TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteBook(book.id)}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-4 text-muted-foreground">
+                          {searchQuery ? "No books match your search." : "No books found. Add one to get started."}
                         </TableCell>
                       </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-4 text-muted-foreground">
-                        No books found. Add one to get started.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                    )}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </div>

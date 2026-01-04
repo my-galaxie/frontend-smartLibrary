@@ -120,11 +120,75 @@ export default function StudentDetailPage() {
             </Card>
           </div>
 
+          {/* Active Loans */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Active Loans</CardTitle>
+              <CardDescription>Currently borrowed books</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Book Title</TableHead>
+                    <TableHead>Borrow Date</TableHead>
+                    <TableHead>Due Date</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {active_borrows && active_borrows.length > 0 ? (
+                    active_borrows.map((loan: any) => (
+                      <TableRow key={loan.id}>
+                        <TableCell className="font-medium">{loan.books?.title || "Unknown"}</TableCell>
+                        <TableCell>{new Date(loan.borrow_date).toLocaleDateString()}</TableCell>
+                        <TableCell>{new Date(loan.due_date).toLocaleDateString()}</TableCell>
+                        <TableCell>
+                          <Badge variant={loan.status === 'overdue' ? "destructive" : "default"}>
+                            {loan.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <button
+                            className="text-sm text-primary hover:underline"
+                            onClick={async () => {
+                              if (!confirm("Mark this book as returned? Fines will be generated if overdue.")) return;
+                              try {
+                                setLoading(true)
+                                const res = await api.returnBook(loan.id)
+                                alert(res.message + (res.fine_generated ? ` Fine: ₹${res.fine_amount}` : ""))
+                                // Refresh logic - crude reload for now or re-fetch
+                                window.location.reload()
+                              } catch (e: any) {
+                                console.error(e)
+                                alert("Failed to return book: " + (e.message || "Unknown error"))
+                                setLoading(false)
+                              }
+                            }}
+                          >
+                            Return Book
+                          </button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
+                        No active loans
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
           {/* Borrow History */}
           <Card>
             <CardHeader>
-              <CardTitle>Borrow History</CardTitle>
-              <CardDescription>Complete transaction history for this student</CardDescription>
+              <CardTitle>History</CardTitle>
+              <CardDescription>Past transaction history</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>

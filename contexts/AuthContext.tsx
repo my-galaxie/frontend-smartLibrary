@@ -22,6 +22,7 @@ interface AuthContextType {
         role: string
         name: string
         student_id?: string
+        department?: string
     }) => Promise<void>
     logout: () => void
     isAuthenticated: boolean
@@ -36,6 +37,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [loading, setLoading] = useState(true)
     const router = useRouter()
 
+    // Auto-logout state
+    const [lastActivity, setLastActivity] = useState(Date.now())
+
     useEffect(() => {
         // 1. Check existing legacy token
         checkAuth()
@@ -46,12 +50,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             if (event === 'SIGNED_IN' && session) {
                 setLoading(true)
+                // Set login time if not set
+                if (!localStorage.getItem('login_time')) {
+                    localStorage.setItem('login_time', Date.now().toString())
+                }
+
                 try {
                     // Sync Supabase Token with our API Client
                     localStorage.setItem('access_token', session.access_token)
 
                     // Validate with backend to get Role & DB Profile
-                    // The backend /auth/validate endpoint uses the token to find the user in DB
                     const response = await api.validate()
 
                     setUser({
@@ -74,12 +82,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     }
                 } catch (error) {
                     console.error("Failed to sync Google login with backend:", error)
-                    // If validation fails, we must clear the Supabase session to prevent a loop
-                    // otherwise Supabase thinks we are logged in -> fires SIGNED_IN -> we retry validate -> fail -> loop
                     await supabase.auth.signOut()
                     localStorage.removeItem('access_token')
                     localStorage.removeItem('user_role')
                     localStorage.removeItem('user_name')
+                    localStorage.removeItem('login_time')
                     setUser(null)
                     setLoading(false)
                 } finally {
@@ -90,14 +97,72 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 localStorage.removeItem('access_token')
                 localStorage.removeItem('user_role')
                 localStorage.removeItem('user_name')
+                localStorage.removeItem('login_time')
                 router.push('/login')
             }
         })
 
+        const handleUnauthorized = () => {
+            console.log("Auto-logging out due to 401 Unauthorized")
+            logout()
+        }
+
+        if (typeof window !== 'undefined') {
+            window.addEventListener('auth:unauthorized', handleUnauthorized)
+        }
+
         return () => {
             subscription.unsubscribe()
+            if (typeof window !== 'undefined') {
+                window.removeEventListener('auth:unauthorized', handleUnauthorized)
+            }
         }
     }, [])
+
+    // Activity Tracker & Auto Logout
+    useEffect(() => {
+        if (!user) return;
+
+        const handleActivity = () => {
+            setLastActivity(Date.now())
+        }
+
+        // Listen for user activity
+        window.addEventListener('mousemove', handleActivity)
+        window.addEventListener('keypress', handleActivity)
+        window.addEventListener('click', handleActivity)
+        window.addEventListener('scroll', handleActivity)
+
+        // Check timers
+        const interval = setInterval(() => {
+            const now = Date.now()
+
+            // 1. Inactivity Check (10 mins)
+            if (now - lastActivity > 10 * 60 * 1000) {
+                console.log("Logging out due to inactivity")
+                logout()
+            }
+
+            // 2. Max Session Check (30 mins)
+            const loginTimeStr = localStorage.getItem('login_time')
+            if (loginTimeStr) {
+                const loginTime = parseInt(loginTimeStr)
+                if (now - loginTime > 30 * 60 * 1000) {
+                    console.log("Logging out due to max session time")
+                    logout()
+                }
+            }
+        }, 10000) // Check every 10 seconds
+
+        return () => {
+            window.removeEventListener('mousemove', handleActivity)
+            window.removeEventListener('keypress', handleActivity)
+            window.removeEventListener('click', handleActivity)
+            window.removeEventListener('scroll', handleActivity)
+            clearInterval(interval)
+        }
+    }, [user, lastActivity])
+
 
     const checkAuth = async () => {
         const token = localStorage.getItem('access_token')
@@ -115,11 +180,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 name: localStorage.getItem('user_name') || response.email,
                 role: response.role,
             })
+            // Ensure login time is set if missing (e.g. page refresh)
+            if (!localStorage.getItem('login_time')) {
+                localStorage.setItem('login_time', Date.now().toString())
+            }
         } catch (error) {
             console.error('Auth validation failed:', error)
             localStorage.removeItem('access_token')
             localStorage.removeItem('user_role')
             localStorage.removeItem('user_name')
+            localStorage.removeItem('login_time')
         } finally {
             setLoading(false)
         }
@@ -136,6 +206,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             localStorage.setItem('access_token', response.access_token)
             localStorage.setItem('user_role', response.role)
             localStorage.setItem('user_name', response.name)
+            localStorage.setItem('login_time', Date.now().toString())
 
             setUser({
                 user_id: response.user_id,
@@ -160,6 +231,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         role: string
         name: string
         student_id?: string
+        department?: string
     }) => {
         try {
             await api.signup(data)
@@ -173,6 +245,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.removeItem('access_token')
         localStorage.removeItem('user_role')
         localStorage.removeItem('user_name')
+        localStorage.removeItem('login_time')
         setUser(null)
         router.push('/login')
     }

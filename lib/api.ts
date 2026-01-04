@@ -41,6 +41,14 @@ class APIClient {
         })
 
         if (!response.ok) {
+            if (response.status === 401) {
+                // Dispatch event for AuthContext to handle
+                console.log("[API] 401 Unauthorized detected. Dispatching auth:unauthorized event.")
+                if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new Event('auth:unauthorized'))
+                }
+            }
+
             const text = await response.text()
             console.error('[API] Error Response Body:', text)
             let error
@@ -220,6 +228,19 @@ class APIClient {
         })
     }
 
+    async returnBook(borrowId: string) {
+        return this.request(`/api/admin/borrows/${borrowId}/return`, {
+            method: 'POST'
+        })
+    }
+
+    async deleteBroadcast(data: { title: string; message: string; type: string }) {
+        const params = new URLSearchParams(data).toString()
+        return this.request(`/api/admin/notifications/broadcast?${params}`, {
+            method: 'DELETE'
+        })
+    }
+
     // Resources endpoints
     async getResources(params?: Record<string, string>) {
         const queryString = params ? '?' + new URLSearchParams(params).toString() : ''
@@ -228,6 +249,41 @@ class APIClient {
 
     async downloadResource(resourceId: string) {
         return this.request(`/api/resources/${resourceId}/download`)
+    }
+
+    async uploadResource(formData: FormData) {
+        // Fetch wrapper automatically handles FormData content-type if we don't set it manually
+        // But our request method sets 'Content-Type': 'application/json' by default
+        // We need to override headers to let browser set boundary
+        const token = getToken()
+
+        console.log(`[API] Uploading to: ${this.baseURL}/api/resources`)
+        const response = await fetch(`${this.baseURL}/api/resources`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+                // Did NOT set Content-Type here, allowing browser to set it with boundary
+            },
+            body: formData
+        })
+
+        if (!response.ok) {
+            const text = await response.text()
+            console.error('[API] Error Response Body:', text)
+            let error
+            try {
+                error = JSON.parse(text)
+            } catch {
+                error = { detail: text }
+            }
+            throw new Error(error.detail || error.message || 'Upload failed')
+        }
+
+        return response.json()
+    }
+
+    async deleteResource(resourceId: string) {
+        return this.request(`/api/resources/${resourceId}`, { method: 'DELETE' })
     }
 
     // Rules endpoints

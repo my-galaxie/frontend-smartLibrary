@@ -22,6 +22,7 @@ const signupSchema = z.object({
     email: z.string().email("Invalid email address"),
     role: z.enum(["student", "admin"]),
     student_id: z.string().optional(),
+    department: z.string().optional(),
     password: z.string()
         .min(8, "Password must be at least 8 characters")
         .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
@@ -39,6 +40,14 @@ const signupSchema = z.object({
 }, {
     message: "Student ID is required for students",
     path: ["student_id"],
+}).refine((data) => {
+    if (data.role === "student" && !data.department) {
+        return false
+    }
+    return true
+}, {
+    message: "Department is required for students",
+    path: ["department"],
 })
 
 // Initialize Supabase Client for OAuth
@@ -63,6 +72,7 @@ export default function SignupPage() {
         name: "",
         role: "student",
         student_id: "",
+        department: "",
     })
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState("")
@@ -115,6 +125,7 @@ export default function SignupPage() {
                 role: formData.role,
                 name: formData.name,
                 student_id: formData.role === "student" ? formData.student_id : undefined,
+                department: formData.role === "student" ? formData.department : undefined,
             })
             setIsOtpSent(true) // Switch to OTP View
         } catch (err: any) {
@@ -253,28 +264,40 @@ export default function SignupPage() {
                                 <Select
                                     value={formData.role}
                                     onValueChange={(value) => handleChange("role", value)}
+                                    disabled={true}
                                 >
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select your role" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="student">Student</SelectItem>
-                                        <SelectItem value="admin">Admin</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
 
                             {formData.role === "student" && (
-                                <div className="space-y-2">
-                                    <Label htmlFor="student_id">Student ID</Label>
-                                    <Input
-                                        id="student_id"
-                                        type="text"
-                                        placeholder="STU2024001"
-                                        value={formData.student_id}
-                                        onChange={(e) => handleChange("student_id", e.target.value)}
-                                    />
-                                </div>
+                                <>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="student_id">Student ID</Label>
+                                        <Input
+                                            id="student_id"
+                                            type="text"
+                                            placeholder="STU2024001"
+                                            value={formData.student_id}
+                                            onChange={(e) => handleChange("student_id", e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="department">Department</Label>
+                                        <Input
+                                            id="department"
+                                            type="text"
+                                            placeholder="e.g. Computer Science"
+                                            value={formData.department}
+                                            onChange={(e) => handleChange("department", e.target.value)}
+                                        />
+                                    </div>
+                                </>
                             )}
 
                             <div className="space-y-2">

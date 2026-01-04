@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Bell, Send, Settings } from "lucide-react"
+import { Bell, Send, Settings, Trash2 } from "lucide-react"
 import { api } from "@/lib/api"
 
 export default function NotificationControlPage() {
@@ -21,20 +21,21 @@ export default function NotificationControlPage() {
   const [configLoading, setConfigLoading] = useState(false)
   const [announcements, setAnnouncements] = useState<any[]>([])
 
+  const [historyLoading, setHistoryLoading] = useState(true)
+
   const fetchAnnouncements = async () => {
     try {
       const res = await api.getRecentAnnouncements()
       if (res.notifications) {
-        // Deduplicate logic if necessary, or just take top 5
-        // Since notifications are per user in DB, this endpoint needs to return unique broadcast messages from backend
-        // Assuming backend handles grouping
         setAnnouncements(res.notifications)
       }
     } catch (err: any) {
       console.error("Failed to fetch announcements", err)
       if (err.message === "Not authenticated" || err.message.includes("401")) {
-        window.location.href = "/auth/login?error=session_expired";
+        // Handled by global event now, but good to keep
       }
+    } finally {
+      setHistoryLoading(false)
     }
   }
 
@@ -200,12 +201,42 @@ export default function NotificationControlPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {announcements.length > 0 ? (
+                {historyLoading ? (
+                  <div className="flex justify-center py-4">
+                    <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full"></div>
+                  </div>
+                ) : announcements.length > 0 ? (
                   announcements.map((ann: any) => (
-                    <div key={ann.id} className="border-b pb-4 last:border-0 last:pb-0">
+                    <div key={ann.id} className="border-b pb-4 last:border-0 last:pb-0 group">
                       <div className="flex items-start justify-between gap-2 mb-1">
-                        <h3 className="font-semibold">{ann.message?.split(':')[0] || "No Title"}</h3>
-                        <span className="text-xs text-muted-foreground">{new Date(ann.created_at).toLocaleDateString()}</span>
+                        <div className="flex-1">
+                          <h3 className="font-semibold">{ann.title || ann.message?.split(':')[0] || "No Title"}</h3>
+                          <span className="text-xs text-muted-foreground">{new Date(ann.created_at).toLocaleDateString()}</span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={async () => {
+                            if (!confirm("Are you sure you want to delete this broadcast?")) return;
+                            try {
+                              setHistoryLoading(true)
+                              await api.deleteBroadcast({
+                                title: ann.title,
+                                message: ann.message,
+                                type: ann.type
+                              })
+                              alert("Broadcast deleted")
+                              fetchAnnouncements()
+                            } catch (e) {
+                              console.error(e)
+                              alert("Failed to delete")
+                              setHistoryLoading(false)
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                       <p className="text-sm text-muted-foreground">{ann.message?.split(':')[1] || ann.message}</p>
                       <p className="text-xs text-muted-foreground mt-2">Sent to: All Students</p>
